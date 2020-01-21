@@ -5,6 +5,45 @@
 
 bool init_hook;
 
+HWND GetProcessWindow();
+bool GetD3D9Device(void** pTable, size_t Size);
+
+void PHook::Init()
+{
+	init_hook = false;
+	while (!init_hook)
+	{
+		if (GetD3D9Device(pDevice, sizeof(pDevice)))
+		{
+			EndSceneAddress = (PTR)pDevice[42];
+			if (MH_Initialize() == MH_OK)
+			{
+				MH_CreateHook((LPVOID)(EndSceneAddress), (LPVOID)hkEndScene, (LPVOID*)& oEndScene);
+				MH_EnableHook((LPVOID)(EndSceneAddress));
+				oWndProc = (WNDPROC)SetWindowLongPtr(window, GWL_WNDPROC, (LONG_PTR)WndProc);
+				init_hook = true;
+				break;
+			}
+		}
+	}
+}
+
+void PHook::Shutdown()
+{
+	if (init_hook)
+	{
+		if (initialized)
+		{
+			ImGui_ImplDX9_Shutdown();
+			ImGui_ImplWin32_Shutdown();
+			ImGui::DestroyContext();
+		}
+		MH_DisableHook((LPVOID)(EndSceneAddress));
+		MH_RemoveHook((LPVOID)(EndSceneAddress));
+		MH_Uninitialize();
+	}
+}
+
 BOOL CALLBACK EnumWindowsCallback(HWND handle, LPARAM lParam)
 {
 	DWORD wndProcId;
@@ -63,38 +102,4 @@ bool GetD3D9Device(void** pTable, size_t Size)
 	pDummyDevice->Release();
 	pD3D->Release();
 	return true;
-}
-
-void PHook::Init()
-{
-	init_hook = false;
-	while (!init_hook)
-	{
-		if (GetD3D9Device(pDevice, sizeof(pDevice)))
-		{
-			EndSceneAddress = (PTR)pDevice[42];
-			MH_Initialize();
-			MH_CreateHook((LPVOID)(EndSceneAddress), (LPVOID)hkEndScene, (LPVOID*)&oEndScene);
-			MH_EnableHook((LPVOID)(EndSceneAddress));
-			oWndProc = (WNDPROC)SetWindowLongPtr(window, GWL_WNDPROC, (LONG_PTR)WndProc);
-			init_hook = true;
-			break;
-		}
-	}
-}
-
-void PHook::Shutdown()
-{
-	if (init_hook)
-	{
-		if (initialized)
-		{
-			ImGui_ImplDX9_Shutdown();
-			ImGui_ImplWin32_Shutdown();
-			ImGui::DestroyContext();
-		}
-		MH_DisableHook((LPVOID)(EndSceneAddress));
-		MH_RemoveHook((LPVOID)(EndSceneAddress));
-		MH_Uninitialize();
-	}
 }
